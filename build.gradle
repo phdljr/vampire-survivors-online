@@ -22,6 +22,9 @@ application {
     mainClass = "com.example.vampireonline.client.GameClientApp"
 }
 
+def clientAppName = "vampire-online-client"
+def serverAppName = "vampire-online-server"
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
 }
@@ -34,3 +37,90 @@ tasks.register("runServer", JavaExec) {
     mainClass = "com.example.vampireonline.server.GameServerMain"
 }
 
+tasks.register("clientStartScripts", CreateStartScripts) {
+    group = "distribution"
+    description = "Creates OS-specific launch scripts for the JavaFX client app."
+    applicationName = clientAppName
+    mainModule = "com.example.vampireonline"
+    mainClass = "com.example.vampireonline.client.GameClientApp"
+    classpath = files(tasks.named("jar"), configurations.runtimeClasspath)
+    outputDir = layout.buildDirectory.dir("scripts/client").get().asFile
+}
+
+tasks.register("serverStartScripts", CreateStartScripts) {
+    group = "distribution"
+    description = "Creates OS-specific launch scripts for the authoritative server app."
+    applicationName = serverAppName
+    mainModule = "com.example.vampireonline"
+    mainClass = "com.example.vampireonline.server.GameServerMain"
+    classpath = files(tasks.named("jar"), configurations.runtimeClasspath)
+    outputDir = layout.buildDirectory.dir("scripts/server").get().asFile
+}
+
+tasks.register("installClientDist", Sync) {
+    group = "distribution"
+    description = "Installs a runnable client distribution under build/install/$clientAppName."
+    dependsOn tasks.named("jar"), tasks.named("clientStartScripts")
+    into layout.buildDirectory.dir("install/$clientAppName")
+
+    from(tasks.named("clientStartScripts")) {
+        into "bin"
+        filePermissions {
+            unix("rwxr-xr-x")
+        }
+    }
+    from(tasks.named("jar")) {
+        into "lib"
+    }
+    from(configurations.runtimeClasspath) {
+        into "lib"
+    }
+}
+
+tasks.register("installServerDist", Sync) {
+    group = "distribution"
+    description = "Installs a runnable server distribution under build/install/$serverAppName."
+    dependsOn tasks.named("jar"), tasks.named("serverStartScripts")
+    into layout.buildDirectory.dir("install/$serverAppName")
+
+    from(tasks.named("serverStartScripts")) {
+        into "bin"
+        filePermissions {
+            unix("rwxr-xr-x")
+        }
+    }
+    from(tasks.named("jar")) {
+        into "lib"
+    }
+    from(configurations.runtimeClasspath) {
+        into "lib"
+    }
+}
+
+tasks.register("clientDistZip", Zip) {
+    group = "distribution"
+    description = "Builds a ZIP distribution for the JavaFX client app."
+    dependsOn tasks.named("installClientDist")
+    archiveBaseName = clientAppName
+    destinationDirectory = layout.buildDirectory.dir("distributions")
+    from(layout.buildDirectory.dir("install/$clientAppName")) {
+        into clientAppName
+    }
+}
+
+tasks.register("serverDistZip", Zip) {
+    group = "distribution"
+    description = "Builds a ZIP distribution for the authoritative server app."
+    dependsOn tasks.named("installServerDist")
+    archiveBaseName = serverAppName
+    destinationDirectory = layout.buildDirectory.dir("distributions")
+    from(layout.buildDirectory.dir("install/$serverAppName")) {
+        into serverAppName
+    }
+}
+
+tasks.register("appDists") {
+    group = "distribution"
+    description = "Builds both client and server ZIP distributions."
+    dependsOn tasks.named("clientDistZip"), tasks.named("serverDistZip")
+}
