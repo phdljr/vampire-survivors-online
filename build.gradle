@@ -1,0 +1,36 @@
+plugins {
+    id "application"
+    id "org.openjfx.javafxplugin" version "0.1.0"
+}
+
+group = "com.example.vampireonline"
+version = "0.1.0"
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+javafx {
+    version = "25.0.1"
+    modules = ["javafx.controls", "javafx.graphics"]
+}
+
+application {
+    mainModule = "com.example.vampireonline"
+    mainClass = "com.example.vampireonline.client.GameClientApp"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+}
+
+tasks.register("runServer", JavaExec) {
+    group = "application"
+    description = "Runs the authoritative multiplayer game server."
+    classpath = sourceSets.main.runtimeClasspath
+    mainModule = "com.example.vampireonline"
+    mainClass = "com.example.vampireonline.server.GameServerMain"
+}
+
