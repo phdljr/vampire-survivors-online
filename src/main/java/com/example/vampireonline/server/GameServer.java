@@ -102,7 +102,14 @@ public final class GameServer implements AutoCloseable {
     private void readInputs(ClientConnection connection) {
         try {
             while (running && !connection.closed) {
-                game.updateInput(connection.playerId, Protocol.readInput(connection.in));
+                byte type = Protocol.readClientMessageType(connection.in);
+                if (type == Protocol.INPUT) {
+                    game.updateInput(connection.playerId, Protocol.readInputPayload(connection.in));
+                } else if (type == Protocol.UPGRADE_CHOICE) {
+                    game.chooseUpgrade(connection.playerId, Protocol.readUpgradeChoicePayload(connection.in));
+                } else {
+                    throw new IOException("Unsupported client message: " + type);
+                }
             }
         } catch (IOException ignored) {
             disconnect(connection.playerId);
@@ -189,4 +196,3 @@ public final class GameServer implements AutoCloseable {
         }
     }
 }
-

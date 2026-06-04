@@ -4,10 +4,13 @@ import com.example.vampireonline.common.math.Vec2;
 import com.example.vampireonline.common.model.EnemyState;
 import com.example.vampireonline.common.model.PlayerState;
 import com.example.vampireonline.common.model.ProjectileState;
+import com.example.vampireonline.common.model.UpgradeCard;
+import com.example.vampireonline.common.model.UpgradeSummary;
 import com.example.vampireonline.common.model.WorldSnapshot;
 import com.example.vampireonline.common.net.InputFrame;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -24,6 +27,7 @@ final class ServerGame {
     private static final double PLAYER_SPEED = 260;
     private static final double PROJECTILE_SPEED = 620;
     private static final double PROJECTILE_RADIUS = 6;
+    private static final int ENEMY_EXPERIENCE = 8;
     private static final int MAX_ENEMIES = 80;
 
     private final Map<Integer, PlayerRuntime> players = new HashMap<>();
@@ -60,6 +64,28 @@ final class ServerGame {
         }
     }
 
+    synchronized void chooseUpgrade(int playerId, String typeName) {
+        PlayerRuntime player = players.get(playerId);
+        if (player == null || player.pendingUpgrades.isEmpty()) {
+            return;
+        }
+        boolean offered = player.pendingUpgrades.stream().anyMatch(card -> card.type().equals(typeName));
+        if (!offered) {
+            return;
+        }
+
+        UpgradeType type;
+        try {
+            type = UpgradeType.valueOf(typeName);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+
+        applyUpgrade(player, type);
+        player.pendingUpgrades = List.of();
+        checkLevelUp(player);
+    }
+
     synchronized void update(double dt) {
         tick++;
         updatePlayers(dt);
@@ -70,7 +96,21 @@ final class ServerGame {
 
     synchronized WorldSnapshot snapshot() {
         List<PlayerState> playerStates = players.values().stream()
-                .map(p -> new PlayerState(p.id, p.name, p.x, p.y, p.hp, p.colorIndex, p.score))
+                .map(p -> new PlayerState(
+                        p.id,
+                        p.name,
+                        p.x,
+                        p.y,
+                        p.hp,
+                        p.maxHp,
+                        p.colorIndex,
+                        p.score,
+                        p.level,
+                        p.experience,
+                        experienceToNextLevel(p.level),
+                        p.pendingUpgrades,
+                        upgradeSummaries(p)
+                ))
                 .toList();
         List<EnemyState> enemyStates = enemies.stream()
                 .map(e -> new EnemyState(e.id, e.x, e.y, ENEMY_RADIUS, e.hp))
@@ -86,7 +126,7 @@ final class ServerGame {
             InputFrame input = player.input;
             double dx = (input.right() ? 1 : 0) - (input.left() ? 1 : 0);
             double dy = (input.down() ? 1 : 0) - (input.up() ? 1 : 0);
-            Vec2 movement = new Vec2(dx, dy).normalizeOrZero().scale(PLAYER_SPEED * dt);
+            Vec2 movement = new Vec2(dx, dy).normalizeOrZero().scale(playerSpeed(player) * dt);
             Vec2 position = new Vec2(player.x, player.y)
                     .add(movement)
                     .clamp(PLAYER_RADIUS, PLAYER_RADIUS, WIDTH - PLAYER_RADIUS, HEIGHT - PLAYER_RADIUS);
@@ -96,7 +136,7 @@ final class ServerGame {
             player.fireCooldown = Math.max(0, player.fireCooldown - dt);
             if (input.firing() && player.fireCooldown <= 0) {
                 fireProjectile(player);
-                player.fireCooldown = 0.16;
+                player.fireCooldown = fireCooldown(player);
             }
         }
     }
@@ -108,7 +148,7 @@ final class ServerGame {
             direction = new Vec2(1, 0);
         }
         projectiles.add(new ProjectileRuntime(nextProjectileId++, player.id, player.x, player.y,
-                direction.x() * PROJECTILE_SPEED, direction.y() * PROJECTILE_SPEED));
+                direction.x() * projectileSpeed(player), direction.y() * projectileSpeed(player), projectileDamage(player)));
     }
 
     private void updateProjectiles(double dt) {
@@ -131,10 +171,11 @@ final class ServerGame {
 
             for (EnemyRuntime enemy : enemies) {
                 if (distanceSquared(projectile.x, projectile.y, enemy.x, enemy.y) <= square(ENEMY_RADIUS + PROJECTILE_RADIUS)) {
-                    enemy.hp -= 25;
+                    enemy.hp -= projectile.damage;
                     PlayerRuntime owner = players.get(projectile.ownerId);
                     if (owner != null && enemy.hp <= 0) {
                         owner.score += 10;
+                        grantExperience(owner, ENEMY_EXPERIENCE);
                     }
                     iterator.remove();
                     break;
@@ -197,6 +238,63 @@ final class ServerGame {
         return nearest;
     }
 
+    private void grantExperience(PlayerRuntime player, int baseAmount) {
+        int gained = (int) Math.round(baseAmount * (1.0 + player.upgradeLevel(UpgradeType.EXPERIENCE) * 0.08));
+        player.experience += Math.max(1, gained);
+        checkLevelUp(player);
+    }
+
+    private void checkLevelUp(PlayerRuntime player) {
+        while (player.experience >= experienceToNextLevel(player.level) && player.pendingUpgrades.isEmpty()) {
+            player.experience -= experienceToNextLevel(player.level);
+            player.level++;
+            player.pendingUpgrades = rollUpgradeCards(player);
+        }
+    }
+
+    private List<UpgradeCard> rollUpgradeCards(PlayerRuntime player) {
+        List<UpgradeType> types = new ArrayList<>(List.of(UpgradeType.values()));
+        Collections.shuffle(types, random);
+        return types.stream()
+                .limit(3)
+                .map(type -> new UpgradeCard(type.name(), type.title, type.description, player.upgradeLevel(type) + 1))
+                .toList();
+    }
+
+    private void applyUpgrade(PlayerRuntime player, UpgradeType type) {
+        player.addUpgrade(type);
+        if (type == UpgradeType.MAX_HEALTH) {
+            player.maxHp += 12;
+            player.hp = Math.min(player.maxHp, player.hp + 12);
+        }
+    }
+
+    private static List<UpgradeSummary> upgradeSummaries(PlayerRuntime player) {
+        return player.learnedUpgradeTypes().stream()
+                .map(type -> new UpgradeSummary(type.title, player.upgradeLevel(type)))
+                .toList();
+    }
+
+    private static int experienceToNextLevel(int level) {
+        return 30 + (level - 1) * 18;
+    }
+
+    private static double playerSpeed(PlayerRuntime player) {
+        return PLAYER_SPEED * (1.0 + player.upgradeLevel(UpgradeType.MOVE_SPEED) * 0.06);
+    }
+
+    private static double fireCooldown(PlayerRuntime player) {
+        return Math.max(0.08, 0.16 * (1.0 - player.upgradeLevel(UpgradeType.FIRE_RATE) * 0.07));
+    }
+
+    private static double projectileSpeed(PlayerRuntime player) {
+        return PROJECTILE_SPEED * (1.0 + player.upgradeLevel(UpgradeType.PROJECTILE_SPEED) * 0.08);
+    }
+
+    private static int projectileDamage(PlayerRuntime player) {
+        return (int) Math.round(25 * (1.0 + player.upgradeLevel(UpgradeType.POWER) * 0.10));
+    }
+
     private static String sanitizeName(String name, int id) {
         if (name == null || name.isBlank()) {
             return "Player " + id;
@@ -234,18 +332,19 @@ final class ServerGame {
         final int ownerId;
         final double vx;
         final double vy;
+        final int damage;
         double x;
         double y;
         double life = 1.5;
 
-        ProjectileRuntime(int id, int ownerId, double x, double y, double vx, double vy) {
+        ProjectileRuntime(int id, int ownerId, double x, double y, double vx, double vy, int damage) {
             this.id = id;
             this.ownerId = ownerId;
             this.x = x;
             this.y = y;
             this.vx = vx;
             this.vy = vy;
+            this.damage = damage;
         }
     }
 }
-

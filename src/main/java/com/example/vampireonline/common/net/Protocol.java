@@ -3,6 +3,8 @@ package com.example.vampireonline.common.net;
 import com.example.vampireonline.common.model.EnemyState;
 import com.example.vampireonline.common.model.PlayerState;
 import com.example.vampireonline.common.model.ProjectileState;
+import com.example.vampireonline.common.model.UpgradeCard;
+import com.example.vampireonline.common.model.UpgradeSummary;
 import com.example.vampireonline.common.model.WorldSnapshot;
 
 import java.io.DataInputStream;
@@ -20,6 +22,7 @@ public final class Protocol {
     public static final byte INPUT = 3;
     public static final byte SNAPSHOT = 4;
     public static final byte REJECTED = 5;
+    public static final byte UPGRADE_CHOICE = 6;
 
     private Protocol() {
     }
@@ -74,11 +77,19 @@ public final class Protocol {
         out.flush();
     }
 
+    public static byte readClientMessageType(DataInputStream in) throws IOException {
+        return in.readByte();
+    }
+
     public static InputFrame readInput(DataInputStream in) throws IOException {
         byte type = in.readByte();
         if (type != INPUT) {
             throw new IOException("Expected INPUT but got " + type);
         }
+        return readInputPayload(in);
+    }
+
+    public static InputFrame readInputPayload(DataInputStream in) throws IOException {
         return new InputFrame(
                 in.readLong(),
                 in.readBoolean(),
@@ -89,6 +100,16 @@ public final class Protocol {
                 in.readDouble(),
                 in.readDouble()
         );
+    }
+
+    public static void writeUpgradeChoice(DataOutputStream out, String type) throws IOException {
+        out.writeByte(UPGRADE_CHOICE);
+        out.writeUTF(type);
+        out.flush();
+    }
+
+    public static String readUpgradeChoicePayload(DataInputStream in) throws IOException {
+        return in.readUTF();
     }
 
     public static void writeSnapshot(DataOutputStream out, WorldSnapshot snapshot) throws IOException {
@@ -104,8 +125,14 @@ public final class Protocol {
             out.writeDouble(player.x());
             out.writeDouble(player.y());
             out.writeInt(player.hp());
+            out.writeInt(player.maxHp());
             out.writeInt(player.colorIndex());
             out.writeInt(player.score());
+            out.writeInt(player.level());
+            out.writeInt(player.experience());
+            out.writeInt(player.experienceToNextLevel());
+            writeUpgradeCards(out, player.pendingUpgrades());
+            writeUpgradeSummaries(out, player.upgrades());
         }
 
         out.writeInt(snapshot.enemies().size());
@@ -147,7 +174,13 @@ public final class Protocol {
                     in.readDouble(),
                     in.readInt(),
                     in.readInt(),
-                    in.readInt()
+                    in.readInt(),
+                    in.readInt(),
+                    in.readInt(),
+                    in.readInt(),
+                    in.readInt(),
+                    readUpgradeCards(in),
+                    readUpgradeSummaries(in)
             ));
         }
 
@@ -165,5 +198,40 @@ public final class Protocol {
 
         return new WorldSnapshot(tick, width, height, List.copyOf(players), List.copyOf(enemies), List.copyOf(projectiles));
     }
-}
 
+    private static void writeUpgradeCards(DataOutputStream out, List<UpgradeCard> cards) throws IOException {
+        out.writeInt(cards.size());
+        for (UpgradeCard card : cards) {
+            out.writeUTF(card.type());
+            out.writeUTF(card.title());
+            out.writeUTF(card.description());
+            out.writeInt(card.nextLevel());
+        }
+    }
+
+    private static List<UpgradeCard> readUpgradeCards(DataInputStream in) throws IOException {
+        int count = in.readInt();
+        List<UpgradeCard> cards = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            cards.add(new UpgradeCard(in.readUTF(), in.readUTF(), in.readUTF(), in.readInt()));
+        }
+        return List.copyOf(cards);
+    }
+
+    private static void writeUpgradeSummaries(DataOutputStream out, List<UpgradeSummary> upgrades) throws IOException {
+        out.writeInt(upgrades.size());
+        for (UpgradeSummary upgrade : upgrades) {
+            out.writeUTF(upgrade.title());
+            out.writeInt(upgrade.level());
+        }
+    }
+
+    private static List<UpgradeSummary> readUpgradeSummaries(DataInputStream in) throws IOException {
+        int count = in.readInt();
+        List<UpgradeSummary> upgrades = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            upgrades.add(new UpgradeSummary(in.readUTF(), in.readInt()));
+        }
+        return List.copyOf(upgrades);
+    }
+}

@@ -53,6 +53,19 @@ final public class GameClient implements AutoCloseable {
         }
     }
 
+    void sendUpgradeChoice(String type) {
+        if (!running) {
+            return;
+        }
+        try {
+            synchronized (out) {
+                Protocol.writeUpgradeChoice(out, type);
+            }
+        } catch (IOException e) {
+            close();
+        }
+    }
+
     @Override
     public void close() {
         running = false;
@@ -73,4 +86,3 @@ final public class GameClient implements AutoCloseable {
         }
     }
 }
-

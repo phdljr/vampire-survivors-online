@@ -3,6 +3,7 @@ package com.example.vampireonline.client;
 import com.example.vampireonline.common.model.EnemyState;
 import com.example.vampireonline.common.model.PlayerState;
 import com.example.vampireonline.common.model.ProjectileState;
+import com.example.vampireonline.common.model.UpgradeSummary;
 import com.example.vampireonline.common.model.WorldSnapshot;
 
 import javafx.geometry.VPos;
@@ -80,7 +81,7 @@ final public class GameRenderer {
         g.setFill(Color.web("#2B2E38"));
         g.fillRect(player.x() - 24, player.y() + 25, 48, 6);
         g.setFill(Color.web("#EF476F"));
-        g.fillRect(player.x() - 24, player.y() + 25, 48 * Math.max(0, player.hp()) / 100.0, 6);
+        g.fillRect(player.x() - 24, player.y() + 25, 48 * Math.max(0, player.hp()) / (double) player.maxHp(), 6);
     }
 
     private void drawEnemy(GraphicsContext g, EnemyState enemy) {
@@ -104,14 +105,53 @@ final public class GameRenderer {
         g.fillText("Players " + snapshot.players().size() + "/4  Enemies " + snapshot.enemies().size(), 16, 14);
 
         double y = 40;
+        PlayerState localPlayer = null;
         for (PlayerState player : snapshot.players()) {
+            if (player.id() == localPlayerId) {
+                localPlayer = player;
+            }
             Color color = PLAYER_COLORS[Math.floorMod(player.colorIndex(), PLAYER_COLORS.length)];
             g.setFill(color);
             g.fillText((player.id() == localPlayerId ? "> " : "  ") + player.name()
-                    + "  HP " + player.hp()
+                    + "  HP " + player.hp() + "/" + player.maxHp()
+                    + "  Lv " + player.level()
                     + "  Score " + player.score(), 16, y);
             y += 22;
         }
+        if (localPlayer != null) {
+            drawProgression(g, localPlayer, y + 8);
+        }
+    }
+
+    private void drawProgression(GraphicsContext g, PlayerState player, double y) {
+        double ratio = player.experienceToNextLevel() <= 0
+                ? 0
+                : Math.clamp(player.experience() / (double) player.experienceToNextLevel(), 0, 1);
+        g.setFill(Color.web("#2B2E38"));
+        g.fillRect(16, y, 260, 12);
+        g.setFill(Color.web("#FFD166"));
+        g.fillRect(16, y, 260 * ratio, 12);
+        g.setStroke(Color.web("#F4F5F7"));
+        g.strokeRect(16, y, 260, 12);
+
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", 14));
+        g.fillText("EXP " + player.experience() + "/" + player.experienceToNextLevel(), 16, y + 18);
+
+        double abilityY = y + 42;
+        g.setFill(Color.web("#C9C6D8"));
+        g.fillText("Abilities", 16, abilityY);
+        abilityY += 20;
+        if (player.upgrades().isEmpty()) {
+            g.fillText("- None yet", 16, abilityY);
+            return;
+        }
+        for (UpgradeSummary upgrade : player.upgrades()) {
+            g.fillText("- " + upgrade.title() + " Lv." + upgrade.level(), 16, abilityY);
+            abilityY += 18;
+            if (abilityY > 250) {
+                break;
+            }
+        }
     }
 }
-
