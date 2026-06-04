@@ -24,7 +24,7 @@ final public class MenuController {
         nameField.setText("Player");
         hostField.setText("127.0.0.1");
         portField.setText(Integer.toString(Protocol.PORT));
-        statusLabel.setText("Host locally or join a server.");
+        statusLabel.setText("혼자 하거나, 같이 플레이하세요.");
     }
 
     void configure(HostHandler hostHandler, JoinHandler joinHandler) {

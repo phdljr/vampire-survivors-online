@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import java.net.URL?>
+<VBox alignment="CENTER" prefHeight="600.0" prefWidth="960.0" spacing="22.0" styleClass="game-over-root"
+      xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.vampireonline.client.GameOverController">
+    <stylesheets>
+        <URL value="@styles.css"/>
+    </stylesheets>
+    <padding>
+        <Insets bottom="36.0" left="36.0" right="36.0" top="36.0"/>
+    </padding>
+
+    <Label styleClass="game-over-title" text="GAME OVER"/>
+    <Label styleClass="score-caption" text="최종 점수"/>
+    <Label fx:id="scoreLabel" styleClass="score-value" text="0"/>
+
+    <HBox alignment="CENTER" spacing="12.0">
+        <Button onAction="#backToStart" prefWidth="150.0" styleClass="primary-button" text="시작화면으로"/>
+        <Button onAction="#exitGame" prefWidth="150.0" styleClass="secondary-button" text="종료하기"/>
+    </HBox>
+</VBox>

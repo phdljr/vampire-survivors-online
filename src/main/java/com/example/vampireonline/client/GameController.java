@@ -1,5 +1,6 @@
 package com.example.vampireonline.client;
 
+import com.example.vampireonline.common.model.PlayerState;
 import com.example.vampireonline.common.model.WorldSnapshot;
 
 import javafx.animation.AnimationTimer;
@@ -20,6 +21,8 @@ final public class GameController {
     private final GameRenderer renderer = new GameRenderer();
     private GameClient client;
     private AnimationTimer timer;
+    private GameOverHandler gameOverHandler;
+    private boolean gameOver;
 
     @FXML
     private void initialize() {
@@ -27,14 +30,23 @@ final public class GameController {
         gameCanvas.heightProperty().bind(rootPane.heightProperty());
     }
 
-    void start(GameClient client) {
+    void start(GameClient client, GameOverHandler gameOverHandler) {
         this.client = client;
+        this.gameOverHandler = gameOverHandler;
+        this.gameOver = false;
         timer = new AnimationTimer() {
             private long lastInputSent;
 
             @Override
             public void handle(long now) {
                 WorldSnapshot snapshot = client.latestSnapshot();
+                PlayerState localPlayer = findLocalPlayer(snapshot);
+                if (!gameOver && localPlayer != null && localPlayer.hp() <= 0) {
+                    gameOver = true;
+                    gameOverHandler.onGameOver(localPlayer);
+                    return;
+                }
+
                 double scale = Math.min(gameCanvas.getWidth() / snapshot.width(), gameCanvas.getHeight() / snapshot.height());
                 double offsetX = Math.max(0, (gameCanvas.getWidth() - snapshot.width() * scale) * 0.5);
                 double offsetY = Math.max(0, (gameCanvas.getHeight() - snapshot.height() * scale) * 0.5);
@@ -75,5 +87,16 @@ final public class GameController {
             }
         }
     }
-}
 
+    private PlayerState findLocalPlayer(WorldSnapshot snapshot) {
+        return snapshot.players().stream()
+                .filter(player -> player.id() == client.playerId())
+                .findFirst()
+                .orElse(null);
+    }
+
+    @FunctionalInterface
+    interface GameOverHandler {
+        void onGameOver(PlayerState player);
+    }
+}

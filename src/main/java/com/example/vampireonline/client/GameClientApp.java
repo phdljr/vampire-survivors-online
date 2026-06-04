@@ -1,11 +1,13 @@
 package com.example.vampireonline.client;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import com.example.vampireonline.common.model.PlayerState;
 import com.example.vampireonline.server.GameServer;
 
 import java.io.IOException;
@@ -59,11 +61,41 @@ public final class GameClientApp extends Application {
         FXMLLoader loader = new FXMLLoader(GameClientApp.class.getResource("game.fxml"));
         Parent root = loader.load();
         gameController = loader.getController();
-        gameController.start(client);
+        gameController.start(client, player -> showGameOver(stage, player));
 
         Scene scene = new Scene(root, 1280, 720);
         gameController.attachScene(scene);
         stage.setScene(scene);
+    }
+
+    private void showGameOver(Stage stage, PlayerState player) {
+        Platform.runLater(() -> {
+            try {
+                if (gameController != null) {
+                    gameController.stop();
+                }
+                if (client != null) {
+                    client.close();
+                    client = null;
+                }
+
+                FXMLLoader loader = new FXMLLoader(GameClientApp.class.getResource("game-over.fxml"));
+                Parent root = loader.load();
+                GameOverController controller = loader.getController();
+                controller.configure(player.score(), () -> returnToMenu(stage), Platform::exit);
+                stage.setScene(new Scene(root, 960, 600));
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to load game over screen", e);
+            }
+        });
+    }
+
+    private void returnToMenu(Stage stage) {
+        try {
+            stage.setScene(loadMenuScene(stage));
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to load start screen", e);
+        }
     }
 
     public static void main(String[] args) {
