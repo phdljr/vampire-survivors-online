@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicReference;
 
-final class GameClient implements AutoCloseable {
+final public class GameClient implements AutoCloseable {
     private final Socket socket;
     private final DataInputStream in;
     private final DataOutputStream out;

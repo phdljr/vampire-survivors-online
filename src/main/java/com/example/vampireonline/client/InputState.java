@@ -2,7 +2,7 @@ package com.example.vampireonline.client;
 
 import com.example.vampireonline.common.net.InputFrame;
 
-final class InputState {
+final public class InputState {
     private long sequence;
     private boolean up;
     private boolean down;

@@ -12,7 +12,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 
-final class GameRenderer {
+final public class GameRenderer {
     private static final Color[] PLAYER_COLORS = {
             Color.web("#4CC9F0"),
             Color.web("#F72585"),
