@@ -45,10 +45,12 @@ public final class GameClientApp extends Application {
         MenuController controller = loader.getController();
         controller.configure(
                 (name, port) -> {
-                    if (embeddedServer == null) {
-                        embeddedServer = new GameServer(port);
-                        embeddedServer.startAsync();
+                    // 기존 embeddedServer가 있다면 닫고 새로운 서버를 생성합니다.
+                    if (embeddedServer != null) {
+                        embeddedServer.close();
                     }
+                    embeddedServer = new GameServer(port);
+                    embeddedServer.startAsync();
                     connect(stage, "127.0.0.1", embeddedServer.port(), name);
                 },
                 (name, host, port) -> connect(stage, host, port, name)
