@@ -34,7 +34,6 @@ final public class GameController {
     private final GameRenderer renderer = new GameRenderer();
     private GameClient client;
     private AnimationTimer timer;
-    private GameOverHandler gameOverHandler;
     private boolean gameOver;
     private List<UpgradeCard> visibleCards = List.of();
 
@@ -46,7 +45,6 @@ final public class GameController {
 
     void start(GameClient client, GameOverHandler gameOverHandler) {
         this.client = client;
-        this.gameOverHandler = gameOverHandler;
         this.gameOver = false;
         timer = new AnimationTimer() {
             private long lastInputSent;

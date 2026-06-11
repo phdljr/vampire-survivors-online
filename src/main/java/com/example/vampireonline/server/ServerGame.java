@@ -175,7 +175,7 @@ final class ServerGame {
                     PlayerRuntime owner = players.get(projectile.ownerId);
                     if (owner != null && enemy.hp <= 0) {
                         owner.score += 10;
-                        grantExperience(owner, ENEMY_EXPERIENCE);
+                        grantExperience(owner);
                     }
                     iterator.remove();
                     break;
@@ -238,8 +238,8 @@ final class ServerGame {
         return nearest;
     }
 
-    private void grantExperience(PlayerRuntime player, int baseAmount) {
-        int gained = (int) Math.round(baseAmount * (1.0 + player.upgradeLevel(UpgradeType.EXPERIENCE) * 0.08));
+    private void grantExperience(PlayerRuntime player) {
+        int gained = (int) Math.round(ServerGame.ENEMY_EXPERIENCE * (1.0 + player.upgradeLevel(UpgradeType.EXPERIENCE) * 0.08));
         player.experience += Math.max(1, gained);
         checkLevelUp(player);
     }

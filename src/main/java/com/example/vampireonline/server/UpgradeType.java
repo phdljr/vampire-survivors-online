@@ -1,6 +1,6 @@
 package com.example.vampireonline.server;
 
-enum UpgradeType {
+public enum UpgradeType {
     POWER("Silver Edge", "Projectile damage +10%"),
     FIRE_RATE("Quick Hands", "Fire cooldown -7%"),
     PROJECTILE_SPEED("Blessed Powder", "Projectile speed +8%"),

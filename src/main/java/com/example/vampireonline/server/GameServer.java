@@ -87,10 +87,6 @@ public final class GameServer implements AutoCloseable {
                 ClientConnection connection = new ClientConnection(id, socket, in, out);
                 clients.put(id, connection);
                 Thread.ofPlatform().name("client-" + id + "-input").daemon(true).start(() -> readInputs(connection));
-            } catch (SocketException e) {
-                if (running) {
-                    e.printStackTrace();
-                }
             } catch (IOException e) {
                 if (running) {
                     e.printStackTrace();
